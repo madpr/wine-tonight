@@ -2,15 +2,15 @@
 
 ## Context
 
-This is a learning project to build a hybrid search stack — vector search, keyword/filter search, and a reranker — following the architecture the user sketched (ingestion offline/async → shared stores → serving online/per-query → ranked results, with an optional LLM-explanation bonus). The goal is to understand each component's role (ANN retrieval, BM25 keyword search, hybrid fusion, cross-encoder reranking, LLM query understanding) by building it, not just wiring together a framework.
+This is a learning project to build a hybrid search stack — vector search, keyword/filter search, and a reranker — following a sketched architecture (ingestion offline/async → shared stores → serving online/per-query → ranked results, with an optional LLM-explanation bonus). The goal is to understand each component's role (ANN retrieval, BM25 keyword search, hybrid fusion, cross-encoder reranking, LLM query understanding) by building it, not just wiring together a framework.
 
 Data: a Kaggle "Wine Reviews" CSV (`data/winemag-data-130k-v2.csv`, 129,971 rows) is already downloaded. Verified schema: `description` (free text, 0 nulls — the field to embed), `title`/`designation`/`winery` (identifiers), `country`/`province`/`region_1`/`region_2` (geo facets, some nulls), `variety` (707 distinct grape varieties), `points` (80–100 rating), `price` (numeric, ~7% null).
 
 Environment: macOS arm64 (Apple Silicon), 24GB RAM, Python 3.12.13 via pyenv. No venv exists yet and the pip environment is essentially empty — nothing is installed. DuckDB CLI v1.5.5 is installed standalone but not the Python package. This is a brand-new project directory: no requirements.txt, README, or other scaffolding exists yet.
 
-The user wants to: (1) do a setup pass first since almost nothing is installed, (2) build and review the offline ingestion pipeline, then (3) build local online serving. Vercel/hosting deployment is explicitly deferred — not planned in detail here.
+Sequencing: (1) a setup pass first since almost nothing is installed, (2) build and review the offline ingestion pipeline, then (3) build local online serving. Vercel/hosting deployment is explicitly deferred — not planned in detail here.
 
-**Decisions confirmed with the user:** fully local embeddings (no embedding API), a plain HTML/JS page (not Streamlit) for local testing, and **LLM-based query understanding from the start** (via the Anthropic API) rather than starting with rule-based parsing.
+**Confirmed decisions:** fully local embeddings (no embedding API), a plain HTML/JS page (not Streamlit) for local testing, and **LLM-based query understanding from the start** (via the Anthropic API) rather than starting with rule-based parsing.
 
 ---
 
@@ -88,7 +88,7 @@ Teaches: turning a raw source into a queryable structured store with a stable ke
 Teaches: bi-encoder embedding + real ANN indexing (the diagram's "Embed chunks → Vector index (ANN/semantic)" path).
 
 - **Model:** `BAAI/bge-small-en-v1.5` (384-dim, 33M params) — strong quality/speed tradeoff for short tasting notes; no chunking needed (descriptions are single-paragraph, unlike the diagram's generic resume-chunking case). Embedding matrix: ~130K × 384 × 4 bytes ≈ 200MB, trivial on 24GB RAM.
-- **Important BGE detail:** the query side needs the instruction prefix `"Represent this sentence for searching relevant passages: "`; the passage/document side (i.e. `description`) does **not**. Embed `description` with no prefix; only add it when embedding the user's query at serve time. Getting this backwards silently hurts recall — call it out explicitly in code comments.
+- **Important BGE detail:** the query side needs the instruction prefix `"Represent this sentence for searching relevant passages: "`; the passage/document side (i.e. `description`) does **not**. Embed `description` with no prefix; only add it when embedding the search query at serve time. Getting this backwards silently hurts recall — call it out explicitly in code comments.
 - **Index type: `IndexHNSWFlat`**, not flat, not IVF — no training/clustering step required (unlike IVF), and it's the closest match to what production vector DBs actually use (pgvector HNSW, Pinecone, etc.), so it's the most transferable ANN concept. Use inner product on L2-normalized vectors (cosine similarity). Optionally also build a brute-force `IndexFlatIP` once as a baseline to compute recall@10 of HNSW against exact search — a good, cheap way to *see* the ANN approximation tradeoff concretely.
 - Sort by `id` before embedding so FAISS's internal row order equals `id` directly — no separate id-mapping file needed.
 - Persist `embeddings.npy` and `faiss.index` under `index/`.
@@ -110,7 +110,7 @@ Teaches: the lexical/exact-match counterpart to vector search — the "Structure
 
 **Checkpoint:** run a filter query (e.g. `country='Italy' AND points>=90 AND price<20`) and a BM25 query (e.g. `match_bm25` for "tannic cherry") independently and confirm both look sane.
 
-**This is the natural pause point to review the full offline/ingestion design before moving to serving**, matching the stated preference to discuss offline first.
+**This is the natural pause point to review the full offline/ingestion design before moving to serving.**
 
 ---
 
@@ -118,7 +118,7 @@ Teaches: the lexical/exact-match counterpart to vector search — the "Structure
 
 Teaches: the diagram's "Query understanding," "Hybrid retrieval" (filter-then-search decision), and "coarse ranking" (fusion) steps.
 
-- **Query understanding (LLM-based, per user's choice):** call the Anthropic API with a structured-output/tool-use prompt that takes the raw natural-language query (e.g. "cheap Italian red under $20, 90+ points") and returns JSON: `{country, variety, price_min, price_max, points_min, points_max, query}` — `query` being the residual semantic text to embed/search. Load the known distinct `country`/`variety` values from DuckDB once and pass them (or a relevant subset) into the prompt so the LLM maps loosely-worded terms ("Italian" → `country='Italy'`) onto real column values reliably.
+- **Query understanding (LLM-based):** call the Anthropic API with a structured-output/tool-use prompt that takes the raw natural-language query (e.g. "cheap Italian red under $20, 90+ points") and returns JSON: `{country, variety, price_min, price_max, points_min, points_max, query}` — `query` being the residual semantic text to embed/search. Load the known distinct `country`/`variety` values from DuckDB once and pass them (or a relevant subset) into the prompt so the LLM maps loosely-worded terms ("Italian" → `country='Italy'`) onto real column values reliably.
   - **Model: `claude-haiku-4-5`** — this is narrow structured extraction against a fixed schema, not open-ended reasoning, so the cheapest current model is the right fit (≈$0.001/query vs ≈$0.003 on Sonnet 5, at roughly 500 input + 100 output tokens per call). Use a strict tool-use schema (`strict: true` on the tool definition) so the JSON output is guaranteed to validate before it hits the DuckDB query. No extended thinking needed for this task.
 - **Hybrid retrieval, filter-then-search vs search-then-filter:** at 130K rows both directions are cheap (DuckDB filter scan and FAISS HNSW search are both sub-100ms), so the choice is about correctness, not performance:
   - Structured-filter + BM25 candidate set (A): apply the extracted filters as a DuckDB `WHERE` clause *first*, then compute BM25 only within that filtered set — this keeps BM25 scores meaningful (scored within the universe actually being searched).
@@ -145,7 +145,7 @@ Teaches: why a second-stage reranker is distinct from bi-encoder retrieval — t
 Teaches: wiring the full pipeline behind one request/response boundary — the diagram's "Ranked results list" output.
 
 - `POST /search` in `serve/api.py`: query understanding → hybrid retrieval → RRF → rerank → JSON list of results (title, description snippet, country, variety, price, points, score).
-- UI (per user's choice): a single static `index.html` with vanilla JS `fetch()`, served by FastAPI (`StaticFiles` mount or a `/` route). No build step, no extra framework — simplest way to type a query and see ranked results in a browser while tuning relevance.
+- UI: a single static `index.html` with vanilla JS `fetch()`, served by FastAPI (`StaticFiles` mount or a `/` route). No build step, no extra framework — simplest way to type a query and see ranked results in a browser while tuning relevance.
 - **Bonus, explicitly optional, not blocking:** LLM explanations — one more Anthropic call per result (or batched) generating a one-line "why this matches," i.e. true RAG on top of the ranked list, per the diagram's dashed "LLM explanations" box.
 - Deployment (Vercel/hosting): explicitly out of scope for this plan — a separate future step once the local pipeline works end-to-end.
 
