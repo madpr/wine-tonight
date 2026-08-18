@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wine Hybrid Search</title>
+<style>
+  :root {
+    --bg: #faf8f6;
+    --panel: #ffffff;
+    --border: #e6e0da;
+    --border-strong: #d4cbc3;
+    --text: #2b2622;
+    --muted: #7a706a;
+    --faint: #a09590;
+    --accent: #7d2438;
+    --accent-soft: #f4ecee;
+    --good: #4a6741;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 2.5rem 1.5rem 5rem;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 0.3rem; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.92rem; margin: 0 0 1.75rem; }
+
+  form { display: flex; gap: 0.5rem; margin-bottom: 0.85rem; }
+  input[type=text] {
+    flex: 1; padding: 0.8rem 1rem; font-size: 1rem; font-family: inherit;
+    border: 1px solid var(--border-strong); border-radius: 8px; background: var(--panel);
+  }
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button.primary {
+    padding: 0.8rem 1.4rem; font-size: 1rem; font-weight: 600; font-family: inherit;
+    color: #fff; background: var(--accent); border: 0; border-radius: 8px; cursor: pointer;
+  }
+  button.primary:disabled { opacity: 0.5; cursor: default; }
+
+  .examples { font-size: 0.85rem; color: var(--muted); margin-bottom: 1.5rem; }
+  .examples button {
+    background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+    padding: 0.3rem 0.7rem; font-size: 0.82rem; font-family: inherit;
+    border-radius: 999px; margin: 0.3rem 0.3rem 0 0; cursor: pointer;
+  }
+  .examples button:hover { border-color: var(--accent); color: var(--accent); }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.1rem 1.2rem; margin-bottom: 1.25rem;
+  }
+  .panel-label {
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--faint); margin: 0 0 0.7rem; font-weight: 600;
+  }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chip {
+    font-size: 0.82rem; padding: 0.25rem 0.65rem; border-radius: 6px;
+    background: var(--accent-soft); border: 1px solid #e8dcdf; color: #5c2230;
+  }
+  .chip .k { color: var(--muted); font-weight: 500; }
+  .chip.soft { background: #f4f2f0; border-color: var(--border); color: var(--muted); }
+  .pipeline {
+    font-size: 0.8rem; color: var(--muted); margin-top: 0.85rem;
+    padding-top: 0.75rem; border-top: 1px dashed var(--border);
+  }
+  .pipeline code { background: #f4f2f0; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.95em; }
+
+  /* --- results --- */
+  .results-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin: 0 0.2rem 0.6rem; gap: 1rem;
+  }
+  .results-count { font-size: 0.82rem; color: var(--muted); }
+  .rating-key {
+    font-size: 0.78rem; color: var(--muted); background: var(--panel);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.7rem 0.9rem; margin-bottom: 1rem;
+  }
+  .rating-key b { color: var(--text); }
+  .rating-key ul { margin: 0.45rem 0 0; padding-left: 1.1rem; }
+  .rating-key li { margin-bottom: 0.15rem; }
+  details.rating-key summary { cursor: pointer; color: var(--accent); font-weight: 500; }
+
+  .result { border-top: 1px solid var(--border); padding: 1.15rem 0; }
+  .result:first-of-type { border-top: 0; padding-top: 0.2rem; }
+  .result-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
+  .result-title { font-weight: 600; font-size: 1.02rem; line-height: 1.35; }
+  .rank { color: var(--faint); font-weight: 500; margin-right: 0.15rem; }
+
+  .rating {
+    flex-shrink: 0; text-align: right; line-height: 1.25;
+  }
+  .rating-score { font-weight: 700; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+  .rating-scale { font-size: 0.72rem; color: var(--faint); }
+  .rating-label { font-size: 0.72rem; color: var(--good); font-weight: 600; }
+
+  .result-meta { font-size: 0.83rem; color: var(--muted); margin: 0.35rem 0 0.55rem; }
+  .result-meta .price { color: var(--text); font-weight: 600; }
+  .result-desc { font-size: 0.93rem; color: #453d38; }
+
+  .status { color: var(--muted); font-size: 0.92rem; padding: 0.5rem 0.2rem; }
+  .error {
+    color: var(--accent); font-size: 0.92rem; background: var(--accent-soft);
+    border: 1px solid #e8dcdf; border-radius: 8px; padding: 0.8rem 1rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Wine Hybrid Search</h1>
+  <p class="sub">
+    Ask in plain language. Your request is split into hard filters (country, colour, price, rating)
+    and a meaning-based search over 130,000 tasting notes — then re-ranked for relevance.
+  </p>
+
+  <form id="search-form">
+    <input type="text" id="query" placeholder="e.g. cheap Italian red under $20, 90+ points" autocomplete="off" autofocus>
+    <button type="submit" class="primary" id="submit-btn">Search</button>
+  </form>
+
+  <div class="examples">
+    Try:
+    <button type="button" data-q="cheap Italian red under $20, 90+ points">cheap Italian red under $20</button>
+    <button type="button" data-q="elegant French white with citrus and minerality">elegant French white, citrus &amp; minerality</button>
+    <button type="button" data-q="bold Argentinian Malbec with dark fruit">bold Argentinian Malbec</button>
+    <button type="button" data-q="sparkling wine for a celebration under $40">sparkling for a celebration</button>
+  </div>
+
+  <div id="status"></div>
+  <div id="filters-panel"></div>
+  <div id="results"></div>
+</main>
+
+<script>
+const form = document.getElementById('search-form');
+const queryInput = document.getElementById('query');
+const submitBtn = document.getElementById('submit-btn');
+const statusEl = document.getElementById('status');
+const filtersPanel = document.getElementById('filters-panel');
+const resultsEl = document.getElementById('results');
+
+// Wine Enthusiast's published 100-point scale. Reviews below 80 are never
+// published, so the effective range in this dataset is 80-100 (mean ~88.5).
+const RATING_BANDS = [
+  { min: 98, label: 'Classic' },
+  { min: 94, label: 'Superb' },
+  { min: 90, label: 'Excellent' },
+  { min: 87, label: 'Very Good' },
+  { min: 83, label: 'Good' },
+  { min: 80, label: 'Acceptable' },
+];
+
+const FILTER_LABELS = {
+  country: 'Country',
+  variety: 'Grape',
+  color: 'Style',
+  price_min: 'Min price',
+  price_max: 'Max price',
+  points_min: 'Min rating',
+  points_max: 'Max rating',
+};
+
+function ratingLabel(points) {
+  const band = RATING_BANDS.find(b => points >= b.min);
+  return band ? band.label : '';
+}
+
+document.querySelectorAll('.examples button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    queryInput.value = btn.dataset.q;
+    form.requestSubmit();
+  });
+});
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const query = queryInput.value.trim();
+  if (!query) return;
+
+  submitBtn.disabled = true;
+  statusEl.innerHTML = '<div class="status">Understanding your query, searching, and re-ranking…</div>';
+  filtersPanel.innerHTML = '';
+  resultsEl.innerHTML = '';
+
+  const startedAt = performance.now();
+  try {
+    const response = await fetch('/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, limit: 10 }),
+    });
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    const data = await response.json();
+
+    renderFilters(data, Math.round(performance.now() - startedAt));
+    renderResults(data.results);
+    statusEl.innerHTML = '';
+  } catch (err) {
+    statusEl.innerHTML = `<div class="error"><b>Search failed.</b> ${escapeHtml(err.message)}</div>`;
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+
+function renderFilters(data, elapsedMs) {
+  // Showing what the model extracted is deliberate: it explains *why* these
+  // results came back, and makes a misread query obvious at a glance.
+  const f = data.filters || {};
+
+  const hardFilters = Object.keys(FILTER_LABELS)
+    .filter(key => f[key] !== null && f[key] !== undefined)
+    .map(key => {
+      const isPrice = key.startsWith('price');
+      const value = isPrice ? `$${f[key]}` : f[key];
+      return `<span class="chip"><span class="k">${FILTER_LABELS[key]}</span> ${escapeHtml(String(value))}</span>`;
+    });
+
+  const semantic = f.query
+    ? `<span class="chip soft"><span class="k">Meaning search</span> “${escapeHtml(f.query)}”</span>`
+    : '';
+
+  const filterChips = hardFilters.length
+    ? hardFilters.join('')
+    : '<span class="chip soft">No hard filters — ranked purely on meaning</span>';
+
+  filtersPanel.innerHTML = `
+    <div class="panel">
+      <p class="panel-label">How your query was interpreted</p>
+      <div class="chips">${filterChips}${semantic}</div>
+      <div class="pipeline">
+        Matched <b>${data.keyword_candidate_count}</b> wines on exact keywords
+        and <b>${data.vector_candidate_count}</b> on meaning, then merged and re-ranked both lists.
+        <span style="color:var(--faint)">· ${elapsedMs}ms</span>
+      </div>
+    </div>`;
+}
+
+function renderResults(results) {
+  if (!results || !results.length) {
+    resultsEl.innerHTML = `
+      <div class="panel">
+        <p class="panel-label">No matches</p>
+        <p class="status" style="padding:0">
+          No wines satisfied every filter above. Try relaxing one — a high minimum rating
+          combined with a low maximum price is the usual culprit.
+        </p>
+      </div>`;
+    return;
+  }
+
+  const cards = results.map((r, i) => {
+    const label = ratingLabel(r.points);
+    const meta = [r.variety, r.color, r.province, r.country].filter(Boolean).map(escapeHtml).join(' · ');
+    const price = r.price != null
+      ? `<span class="price">$${r.price}</span>`
+      : `<span style="color:var(--faint)">price not listed</span>`;
+
+    return `
+      <div class="result">
+        <div class="result-head">
+          <div class="result-title"><span class="rank">${i + 1}.</span>${escapeHtml(r.title)}</div>
+          <div class="rating" title="Wine Enthusiast rating: ${r.points} out of 100">
+            <div class="rating-score">${r.points}<span class="rating-scale">/100</span></div>
+            <div class="rating-label">${label}</div>
+          </div>
+        </div>
+        <div class="result-meta">${meta} · ${price}</div>
+        <div class="result-desc">${escapeHtml(r.description)}</div>
+      </div>`;
+  }).join('');
+
+  resultsEl.innerHTML = `
+    <div class="results-head">
+      <p class="panel-label" style="margin:0">Best matches</p>
+      <span class="results-count">${results.length} shown, most relevant first</span>
+    </div>
+    <details class="rating-key">
+      <summary>What does the rating mean?</summary>
+      <div style="margin-top:0.6rem">
+        Ratings come from <b>Wine Enthusiast</b>'s 100-point scale, as scored by the reviewer.
+        Only wines scoring 80 or above get published, so <b>80–100 is the full practical range</b> —
+        and the average wine here sits around <b>88</b>.
+        <ul>
+          <li><b>98–100</b> Classic — the pinnacle of quality</li>
+          <li><b>94–97</b> Superb — a great achievement</li>
+          <li><b>90–93</b> Excellent — highly recommended</li>
+          <li><b>87–89</b> Very Good — often good value</li>
+          <li><b>83–86</b> Good — solid everyday drinking</li>
+          <li><b>80–82</b> Acceptable — fine in casual settings</li>
+        </ul>
+        Rating and price correlate only loosely (0.42), so bargains at 90+ genuinely exist.
+      </div>
+    </details>
+    <div class="panel">${cards}</div>`;
+}
+
+function escapeHtml(value) {
+  const div = document.createElement('div');
+  div.textContent = value;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
