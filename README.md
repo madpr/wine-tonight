@@ -1,135 +1,72 @@
 # What wine do you want to drink tonight?
 
-Ask in plain language, get a wine. A learning project: building a hybrid search stack (vector search + keyword/filter search + reranker) over the Kaggle [Wine Reviews](https://www.kaggle.com/datasets/zynicide/wine-reviews) dataset.
+Ask in plain language, get a wine. A hybrid search stack — keyword + vector retrieval, fused and reranked — over 129,971 [Wine Enthusiast reviews](https://www.kaggle.com/datasets/zynicide/wine-reviews).
 
-See [PLAN.md](./PLAN.md) for the full architecture and phased implementation plan.
+**Live demo:** [huggingface.co/spaces/pratheeksha11/wine-tonight](https://huggingface.co/spaces/pratheeksha11/wine-tonight)
+
+```
+"cheap Italian red under $20, 90+ points"
+   ↓  claude-haiku-4-5 extracts: country=Italy, color=red, price≤20, points≥90
+   ↓  BM25 keyword search + exact vector similarity, both over the filtered set
+   ↓  Reciprocal Rank Fusion merges the two ranked lists
+   ↓  cross-encoder reranks the top 50
+→  Villa Pillo 2005 Sant'Adele Merlot · Tuscany · $16 · 90/100
+```
 
 ## Setup
 
-1. Download `winemag-data-130k-v2.csv` from Kaggle and place it at `data/winemag-data-130k-v2.csv` (not committed to this repo — see `.gitignore`).
-2. Create a virtualenv and install dependencies:
+1. Download `winemag-data-130k-v2.csv` from Kaggle to `data/` (gitignored).
+2. Install dependencies:
    ```
-   python3 -m venv .venv
-   source .venv/bin/activate
+   python3 -m venv .venv && source .venv/bin/activate
    pip install -r requirements.txt
    ```
-3. Copy `.env.example` to `.env` and fill in `ANTHROPIC_API_KEY` (used for LLM-based query understanding and the one-time wine-color classification).
+3. Copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY`.
 
-## Build the indexes (offline, run in order)
+## Build the indexes
 
-```
-python3 ingest/load_to_duckdb.py        # CSV -> DuckDB `wines` table (129,971 rows)
-python3 ingest/build_vector_index.py    # embed descriptions -> embeddings.npy + FAISS HNSW index
-python3 ingest/build_fts_index.py       # DuckDB FTS (BM25) index on `description`
-python3 ingest/classify_wine_color.py   # derive a `color` field from `variety` (707 varieties, one-time LLM pass)
-```
-
-Each script prints its own verification output (row counts, HNSW-vs-exact recall@10, sample query results, color distribution). The first embedding run downloads `BAAI/bge-small-en-v1.5` (~137MB) to the shared Hugging Face cache and takes ~2 minutes on Apple Silicon.
-
-Note on re-running: `load_to_duckdb.py` drops and recreates the `wines` table, so re-running it also requires re-running `build_fts_index.py` and `classify_wine_color.py`. Embeddings only need rebuilding if row count or `id` ordering changes.
-
-## Serve locally
+Run in order (~3 minutes total; the first run downloads a 137MB embedding model):
 
 ```
-uvicorn api:app --app-dir serve --port 8000
+python3 ingest/load_to_duckdb.py        # CSV -> DuckDB `wines` table
+python3 ingest/build_vector_index.py    # embeddings.npy + FAISS index
+python3 ingest/build_fts_index.py       # DuckDB FTS (BM25) index
+python3 ingest/classify_wine_color.py   # derive `color` from `variety` (one-time LLM pass)
 ```
 
-Then open http://127.0.0.1:8000. The `--app-dir serve` flag is required — `api.py` imports its sibling modules flatly.
+Each script prints its own verification output. Re-running `load_to_duckdb.py` drops and recreates the table, so re-run `build_fts_index.py` and `classify_wine_color.py` after it.
 
-The UI shows the LLM-extracted filters and how many candidates each retrieval path contributed, alongside the ranked results.
+## Run
 
-To trace a single query through every stage on the command line instead:
+```
+uvicorn api:app --app-dir serve --port 8000     # then open http://127.0.0.1:8000
+```
+
+`--app-dir serve` is required — `api.py` imports its siblings flatly.
+
+Or trace one query through every stage on the command line:
 
 ```
 python3 serve/hand_trace.py "cheap Italian red under \$20, 90+ points"
 ```
 
-This prints the extracted filters, both candidate counts, and the RRF-only top 10 next to the reranked top 10 — useful for seeing what reranking actually changes.
+## Layout
 
-## Which retrieval path actually executes (and why HNSW doesn't)
+| Path | Contents |
+|---|---|
+| `ingest/` | Offline: load, embed, index, enrich |
+| `serve/` | Online: query understanding, retrieval, fusion, reranking, FastAPI app |
+| `eval/` | Measurement harnesses (exact vs approximate retrieval) |
+| `app.py`, `static/` | Gradio frontend (deployed) and HTML frontend (local) |
+| `data/`, `index/` | Input and derived artifacts — both gitignored |
 
-Serving uses **exact** cosine similarity over the DuckDB-filtered subset
-(`serve/retrieval.py:vector_candidates`). The FAISS HNSW index is **not** in the
-query path — `faiss` is imported nowhere in `serve/` by default, and
-`faiss.index` is excluded from the deployed Space entirely.
+## Documentation
 
-That's a measured decision, not an oversight. `eval/sweep_hnsw.py` swept HNSW
-build and search parameters against exact search over 20 queries spanning filter
-selectivity from 129,971 eligible wines down to 46:
-
-| Search-only, identical filtered subsets | Latency | Recall |
-|---|---|---|
-| **Exact numpy scan** | **0.41 ms** | **1.000** |
-| HNSW, best config (M=96, efC=400, efSearch=1024) | 2.82 ms | 0.876 |
-| HNSW, as originally built (M=32, efC=40, efSearch=16) | 0.12 ms | 0.357 |
-
-Exact is faster on 20/20 queries, and its worst case — all 129,971 vectors on an
-unfiltered query — is 2.40 ms. HNSW is strictly dominated: slower *and* lossier.
-
-The mechanism: a filter reduces exact's work proportionally, because it scans
-only eligible rows. It makes HNSW *less* efficient, because the graph spans the
-whole corpus and the traversal wastes its budget on ineligible neighbours. This
-is why production filtered-vector systems estimate filter cardinality and fall
-back to brute force when the filter is selective.
-
-Two things the sweep corrected about earlier claims in this repo:
-
-- **`efSearch` dominates, not graph connectivity.** Raising `efSearch` 16 → 1024
-  gained +0.50 recall; rebuilding with M 32 → 96 and efConstruction 40 → 400
-  gained +0.016 on top. The intuition that more edges per node rescues filtered
-  traversal is real but marginal here.
-- **An earlier "recall@10 = 0.932" figure was unrepresentative.** It measured raw
-  HNSW vs exact neighbours using *corpus vectors* as queries with *no filters*.
-  Under real queries with filters, the same index scores 0.357.
-
-So HNSW exists here as the measurement instrument that justifies not using it,
-and as the scale-up lever: exact costs ~16 ns/vector, so ~10M vectors would put
-a full scan around 160 ms, which is where ANN starts earning its keep.
-
-Full pipeline effect: `eval/compare_ann_exact.py` shows BM25 fusion and
-cross-encoder reranking absorb most of the retrieval loss — 0.357 vector recall
-becomes 0.825 final recall@10, with top-1 unchanged on 18/20 queries.
-
-## Tracing
-
-Set `WINE_TRACE=1` to log every pipeline stage — inputs on entry, return value and duration on exit, all correlated by a per-request trace id:
-
-```
-WINE_TRACE=1 python3 serve/hand_trace.py "cheap Italian red under \$20, 90+ points"
-WINE_TRACE=1 uvicorn api:app --app-dir serve --port 8000
-```
-
-```
-[83e45354] → search('cheap Italian red under $20, 90+ points')
-[83e45354]   → understand_query('cheap Italian red under $20, 90+ points')
-[83e45354]   ← understand_query = {country='Italy', color='red', price_max=20, points_min=90, ...} [1920ms]
-[83e45354]     → keyword_candidates({...}, 'cheap Italian red', 100)
-[83e45354]     ← keyword_candidates = list[78403, 60268, ..., +54 more] (n=60) [43ms]
-[83e45354]     ← vector_candidates = list[120895, 22797, ..., +94 more] (n=100) [319ms]
-[83e45354]   ← rerank = list[tuple[60268, -5.84], ..., +44 more] (n=50) [112ms]
-[83e45354] ← search = list[...] (n=3) [2395ms]
-```
-
-Values are summarized rather than dumped — a `(129971, 384)` embeddings matrix logs as its shape, and long lists as a head plus a count — so the output stays readable. Tracing is off unless `WINE_TRACE` is set, and the decorator short-circuits when disabled.
-
-Useful immediately: the timings show the LLM query-understanding call is ~80% of total latency, while all the retrieval, fusion, and reranking together run in under 500ms.
-
-## Project structure
-
-- `data/` — raw input (gitignored)
-- `index/` — regenerable derived artifacts: DuckDB file, FAISS index, embeddings (gitignored, rebuilt by `ingest/` scripts)
-- `ingest/` — offline pipeline: load CSV into DuckDB, build embeddings + FAISS index, build DuckDB FTS index, classify wine color
-- `serve/` — online pipeline: query understanding, hybrid retrieval, RRF fusion, cross-encoder reranking, FastAPI app
-- `static/` — minimal HTML/JS search UI
-
-## How it works
-
-**Offline:** the CSV becomes a DuckDB table (structured filters + BM25 full-text index) and a matrix of 384-dim embeddings of each `description` (searchable via FAISS HNSW). A one-time LLM pass derives a `color` field from `variety`, since the dataset has no color column.
-
-**Per query:** `claude-haiku-4-5` maps natural language onto hard filters (`country`, `variety`, `color`, price range, points range) plus a residual semantic query. Both retrieval paths filter first, then search — BM25 within the filtered set, and exact cosine similarity over the filtered subset of embeddings. The two ranked lists are fused with Reciprocal Rank Fusion (rank-based, since BM25 scores and cosine similarities aren't comparable scales), and the top 50 are reordered by a cross-encoder that reads the query and each description together.
-
-### Known limitations
-
-- The source CSV contains exact-duplicate reviews, which surface as near-identical results. Deduplication belongs at ingestion (content hash on `title`+`description`) but is not implemented.
-- `price` is null for ~7% of wines; a price filter silently excludes those rows.
-- Long-tail varieties beyond the top 200 aren't offered to the query-understanding step, so they fall through to free-text search rather than becoming a hard filter.
+| Doc | Covers |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | How each stage works and why it was chosen |
+| [docs/retrieval-evaluation.md](docs/retrieval-evaluation.md) | Exact vs approximate vector search, measured — and why HNSW isn't in the query path |
+| [docs/tracing.md](docs/tracing.md) | `WINE_TRACE=1` end-to-end stage logging |
+| [docs/deployment.md](docs/deployment.md) | Hugging Face Spaces deployment, and why Vercel can't host this |
+| [docs/data.md](docs/data.md) | Dataset schema, the ratings scale, known data limitations |
+| [PLAN.md](PLAN.md) | Original phased implementation plan (historical) |
