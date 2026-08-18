@@ -1,6 +1,6 @@
-# search-project-wine
+# What wine do you want to drink tonight?
 
-A learning project: building a hybrid search stack (vector search + keyword/filter search + reranker) over the Kaggle [Wine Reviews](https://www.kaggle.com/datasets/zynicide/wine-reviews) dataset.
+Ask in plain language, get a wine. A learning project: building a hybrid search stack (vector search + keyword/filter search + reranker) over the Kaggle [Wine Reviews](https://www.kaggle.com/datasets/zynicide/wine-reviews) dataset.
 
 See [PLAN.md](./PLAN.md) for the full architecture and phased implementation plan.
 
