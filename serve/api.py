@@ -29,7 +29,7 @@ STATIC_DIR = ROOT / "static"
 CANDIDATES_PER_PATH = 100
 RERANK_TOP_N = 50
 
-app = FastAPI(title="Wine Hybrid Search")
+app = FastAPI(title="What wine do you want to drink tonight?")
 
 
 class SearchRequest(BaseModel):
