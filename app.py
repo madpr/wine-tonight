@@ -14,6 +14,7 @@ goes inside it. Nothing ever requests a GPU, so no quota is burned.
 
 import spaces  # noqa: F401  -- must precede any torch import
 
+import logging
 import pathlib
 import sys
 
@@ -92,6 +93,19 @@ def _format_filters(filters: dict, keyword_count: int, vector_count: int) -> str
         f"Matched **{keyword_count}** wines on exact keywords and **{vector_count}** "
         "on meaning, then merged and re-ranked both lists."
     )
+
+    # Be honest when the search ran without the LLM -- filters may be less
+    # complete (rules can't infer "crisp for a hot afternoon" implies white).
+    source = filters.get("_source")
+    if source == "cache":
+        lines.append("")
+        lines.append("_Filters served from cache._")
+    elif source and source != "llm":
+        lines.append("")
+        lines.append(
+            f"_Language model unavailable ({source}) — filters extracted by rules, "
+            "so implied ones may be missing. Search itself is unaffected._"
+        )
     return "\n".join(lines)
 
 
@@ -136,15 +150,15 @@ def search_wines(query: str) -> tuple[str, str]:
     if not query:
         return "", "_Enter a description of the wine you want._"
 
+    # understand_query already degrades internally (cache -> LLM -> rules), so
+    # this only catches genuine bugs. Even then, search the raw string with no
+    # filters rather than returning nothing: BM25 and vector retrieval work
+    # perfectly well without extracted filters.
     try:
         filters = understand_query(query)
-    except Exception as exc:  # surface config problems readably, not as a traceback
-        return "", (
-            "### Query understanding failed\n\n"
-            f"`{type(exc).__name__}: {exc}`\n\n"
-            "If this mentions authentication, the `ANTHROPIC_API_KEY` secret "
-            "isn't set on this Space."
-        )
+    except Exception as exc:
+        logging.getLogger("wine").exception("query understanding failed outright")
+        filters = {"query": query, "_source": f"failed ({type(exc).__name__})"}
     keyword_ids, vector_ids = hybrid_candidates(
         filters, filters["query"], top_n=CANDIDATES_PER_PATH
     )
