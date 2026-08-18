@@ -84,8 +84,10 @@ cat <<EOF
 
 Pushed to https://huggingface.co/spaces/${SPACE_ID}
 
-NEXT STEP -- the app will fail on every query until you do this:
-  hf spaces secrets set ${SPACE_ID} ANTHROPIC_API_KEY=<your-key>
+NEXT STEP -- the app will fail on every query until you do this.
+Omitting the value makes the CLI prompt for it, keeping the key out of
+your shell history:
+  hf spaces secrets add ${SPACE_ID} -s ANTHROPIC_API_KEY
 
 Then watch it come up:
   hf spaces logs ${SPACE_ID} --build --follow    # build errors

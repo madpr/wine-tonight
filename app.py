@@ -134,7 +134,15 @@ def search_wines(query: str) -> tuple[str, str]:
     if not query:
         return "", "_Enter a description of the wine you want._"
 
-    filters = understand_query(query)
+    try:
+        filters = understand_query(query)
+    except Exception as exc:  # surface config problems readably, not as a traceback
+        return "", (
+            "### Query understanding failed\n\n"
+            f"`{type(exc).__name__}: {exc}`\n\n"
+            "If this mentions authentication, the `ANTHROPIC_API_KEY` secret "
+            "isn't set on this Space."
+        )
     keyword_ids, vector_ids = hybrid_candidates(
         filters, filters["query"], top_n=CANDIDATES_PER_PATH
     )
@@ -218,4 +226,6 @@ with gr.Blocks(title="What wine do you want to drink tonight?") as demo:
         trigger(fn=search_wines, inputs=[query_box], outputs=[interpretation, results])
 
 if __name__ == "__main__":
-    demo.launch(mcp_server=True)
+    # show_error surfaces exceptions in the UI instead of a generic "app has
+    # raised an exception" with the detail only in the server logs.
+    demo.launch(mcp_server=True, show_error=True)

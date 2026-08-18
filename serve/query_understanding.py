@@ -104,6 +104,9 @@ def _load_known_values() -> tuple[list[str], list[str]]:
 
 
 _COUNTRIES, _VARIETIES = _load_known_values()
+# Safe to construct without credentials present -- the SDK resolves auth at
+# request time, not here, so a missing key surfaces per-query rather than
+# breaking startup.
 _client = anthropic.Anthropic()
 
 
