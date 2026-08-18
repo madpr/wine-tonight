@@ -1,0 +1,15 @@
+# Requirements for the Hugging Face Space (Gradio SDK on ZeroGPU).
+#
+# Deliberately omitted:
+#   gradio, spaces, huggingface_hub -- preinstalled and platform-managed on
+#     Spaces; pinning them causes resolution failures or breaks the runtime.
+#   torch -- left unpinned so the ZeroGPU runtime supplies its own version.
+#   faiss-cpu -- nothing in serve/ imports faiss. It's only used offline by
+#     ingest/build_vector_index.py for the HNSW-vs-exact recall check.
+#   fastapi, uvicorn -- Gradio replaces the FastAPI serving layer.
+#   pandas, pyarrow -- not imported by any serving module.
+duckdb==1.5.5
+numpy>=2.0,<3
+sentence-transformers>=3.0,<6.0
+anthropic>=0.40
+python-dotenv>=1.0

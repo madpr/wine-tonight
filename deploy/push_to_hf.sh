@@ -1,86 +1,92 @@
 #!/usr/bin/env bash
-# Push this project to a Hugging Face Space (Docker SDK).
+# Deploy this project to a Hugging Face Space (Gradio SDK on ZeroGPU).
 #
-# Why a staging directory instead of a git branch: the two prebuilt index
-# artifacts (~247MB) are gitignored on GitHub deliberately, but the Space needs
-# them committed via Git LFS. Building a throwaway repo in /tmp keeps that LFS
-# history entirely out of the GitHub repo and never touches your working tree.
+# Why Gradio + ZeroGPU rather than Docker + cpu-basic: free personal accounts
+# can't create Docker or cpu-basic Spaces -- both are gated behind a paid plan.
+# The one free option is up to 2 ZeroGPU Spaces, which are Gradio-only. None of
+# this app's work is GPU work; app.py carries a no-op @spaces.GPU function
+# purely because ZeroGPU refuses to start without one, so no quota is burned.
+#
+# Why a staging directory: the Space needs a different requirements.txt and
+# README.md than the GitHub repo, plus the two prebuilt index artifacts that are
+# gitignored here on purpose. Assembling in /tmp keeps the repo untouched.
 #
 # Usage:
-#   ./deploy/push_to_hf.sh <hf-username> [space-name]
+#   ./deploy/push_to_hf.sh [space-name]
 #
 # Prerequisites:
-#   - git lfs installed          (brew install git-lfs && git lfs install)
-#   - a Hugging Face account and an access token with write permission
-#   - the Space already created as SDK=Docker at
-#     https://huggingface.co/new-space
-#   - indexes built locally (ingest/ scripts) so index/ exists
-#   - ANTHROPIC_API_KEY set as a Space secret in the Space's Settings
+#   - hf auth login   (prints a URL + one-time code)
+#   - indexes built locally: see "Build the indexes" in README.md
 
 set -euo pipefail
 
-HF_USER="${1:?usage: ./deploy/push_to_hf.sh <hf-username> [space-name]}"
-SPACE_NAME="${2:-wine-tonight}"
-SPACE_URL="https://huggingface.co/spaces/${HF_USER}/${SPACE_NAME}"
+SPACE_NAME="${1:-wine-tonight}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-# The Space serves search requests directly from these; without them the app
-# crashes at import time (retrieval.py np.load's the embeddings eagerly).
-for artifact in index/wine.duckdb index/embeddings.npy; do
-  if [[ ! -f "$artifact" ]]; then
-    echo "ERROR: missing $artifact" >&2
-    echo "Build the indexes first: see the 'Build the indexes' section in README.md" >&2
-    exit 1
-  fi
-done
-
-command -v git-lfs >/dev/null 2>&1 || {
-  echo "ERROR: git lfs not installed. Run: brew install git-lfs && git lfs install" >&2
+command -v hf >/dev/null 2>&1 || {
+  echo "ERROR: hf CLI not found. Run: pip install -U huggingface_hub" >&2
   exit 1
 }
 
+HF_USER="$(hf auth whoami 2>/dev/null | head -1 | tr -d '[:space:]')" || true
+if [[ -z "${HF_USER}" || "${HF_USER}" == "Notloggedin" ]]; then
+  echo "ERROR: not logged in to Hugging Face. Run: hf auth login" >&2
+  exit 1
+fi
+SPACE_ID="${HF_USER}/${SPACE_NAME}"
+
+# Without these the app dies at import: retrieval.py np.load's the embeddings
+# eagerly, and every query reads the DuckDB file.
+for artifact in index/wine.duckdb index/embeddings.npy; do
+  [[ -f "$artifact" ]] || {
+    echo "ERROR: missing $artifact -- build the indexes first (see README.md)" >&2
+    exit 1
+  }
+done
+
 STAGING="$(mktemp -d)"
 trap 'rm -rf "$STAGING"' EXIT
-echo "Staging deployment in $STAGING"
+echo "Staging Space contents in $STAGING"
 
-# Application code and the page it serves.
-mkdir -p "$STAGING/serve" "$STAGING/static" "$STAGING/index"
-cp serve/*.py "$STAGING/serve/"
-cp static/index.html "$STAGING/static/"
-cp requirements.txt Dockerfile "$STAGING/"
+mkdir -p "$STAGING/serve" "$STAGING/index"
 
-# The Space's README.md carries the YAML frontmatter that configures it
-# (sdk: docker, app_port: 7860). That frontmatter would render as stray text
-# on GitHub, which is why it lives in deploy/ and is swapped in only here.
+# Gradio entry point + the unchanged pipeline modules it imports.
+cp app.py "$STAGING/"
+cp serve/fusion.py serve/query_understanding.py serve/rerank.py serve/retrieval.py "$STAGING/serve/"
+
+# Space-specific variants (see the header comment for why these differ).
+cp deploy/requirements_hf.txt "$STAGING/requirements.txt"
 cp deploy/README_hf.md "$STAGING/README.md"
 
-# faiss.index is deliberately excluded -- nothing in serve/ imports faiss.
-# It exists only for the offline HNSW-vs-exact recall comparison.
+# faiss.index is intentionally excluded -- unused at serving time.
 cp index/wine.duckdb index/embeddings.npy "$STAGING/index/"
 
-cd "$STAGING"
-git init -q
-git lfs install --local
-git lfs track "index/*.duckdb" "index/*.npy" >/dev/null
-git add .gitattributes
-git add -A
-git -c user.email=deploy@localhost -c user.name=deploy \
-  commit -q -m "Deploy hybrid wine search to Hugging Face Spaces"
+echo "Creating Space ${SPACE_ID} (idempotent)"
+hf repos create "$SPACE_ID" \
+  --type space \
+  --space-sdk gradio \
+  --flavor zero-a10g \
+  --public \
+  --exist-ok
 
-echo
-echo "Pushing to $SPACE_URL"
-echo "When prompted, use your HF username and an access token (not your password)."
-echo "Create one at: https://huggingface.co/settings/tokens (needs write access)"
-echo
-git remote add origin "$SPACE_URL"
-git push --force origin HEAD:main
+echo "Uploading (~247MB of index artifacts, so this takes a few minutes)"
+# --repo-type space is required; hf upload otherwise creates a *model* repo.
+hf upload "$SPACE_ID" "$STAGING" . \
+  --repo-type space \
+  --exclude "**/__pycache__/**" \
+  --commit-message "Deploy hybrid wine search"
 
-echo
-echo "Done. The Space will now build the Docker image (expect ~10-15 min the"
-echo "first time -- it installs torch and bakes both models into the image)."
-echo "Watch progress at: ${SPACE_URL}"
-echo
-echo "REMINDER: set ANTHROPIC_API_KEY as a secret under the Space's"
-echo "Settings -> Variables and secrets, or query understanding will fail."
+cat <<EOF
+
+Pushed to https://huggingface.co/spaces/${SPACE_ID}
+
+NEXT STEP -- the app will fail on every query until you do this:
+  hf spaces secrets set ${SPACE_ID} ANTHROPIC_API_KEY=<your-key>
+
+Then watch it come up:
+  hf spaces logs ${SPACE_ID} --build --follow    # build errors
+  hf spaces logs ${SPACE_ID} --follow            # runtime errors
+  hf spaces info ${SPACE_ID} --expand runtime    # stage + hardware
+EOF
