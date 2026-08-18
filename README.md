@@ -65,6 +65,7 @@ python3 serve/hand_trace.py "cheap Italian red under \$20, 90+ points"
 | Doc | Covers |
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | How each stage works and why it was chosen |
+| [docs/query-understanding.md](docs/query-understanding.md) | The cache → LLM → rules fallback chain, and why a local 1.5B model lost to regex |
 | [docs/retrieval-evaluation.md](docs/retrieval-evaluation.md) | Exact vs approximate vector search, measured — and why HNSW isn't in the query path |
 | [docs/tracing.md](docs/tracing.md) | `WINE_TRACE=1` end-to-end stage logging |
 | [docs/deployment.md](docs/deployment.md) | Hugging Face Spaces deployment, and why Vercel can't host this |
