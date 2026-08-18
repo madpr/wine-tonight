@@ -70,4 +70,5 @@ python3 serve/hand_trace.py "cheap Italian red under \$20, 90+ points"
 | [docs/tracing.md](docs/tracing.md) | `WINE_TRACE=1` end-to-end stage logging |
 | [docs/deployment.md](docs/deployment.md) | Hugging Face Spaces deployment, and why Vercel can't host this |
 | [docs/data.md](docs/data.md) | Dataset schema, the ratings scale, known data limitations |
+| [docs/limitations.md](docs/limitations.md) | What's unmeasured, where the design breaks at scale, and the open gaps |
 | [PLAN.md](PLAN.md) | Original phased implementation plan (historical) |
