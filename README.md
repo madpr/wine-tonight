@@ -46,6 +46,50 @@ python3 serve/hand_trace.py "cheap Italian red under \$20, 90+ points"
 
 This prints the extracted filters, both candidate counts, and the RRF-only top 10 next to the reranked top 10 — useful for seeing what reranking actually changes.
 
+## Which retrieval path actually executes (and why HNSW doesn't)
+
+Serving uses **exact** cosine similarity over the DuckDB-filtered subset
+(`serve/retrieval.py:vector_candidates`). The FAISS HNSW index is **not** in the
+query path — `faiss` is imported nowhere in `serve/` by default, and
+`faiss.index` is excluded from the deployed Space entirely.
+
+That's a measured decision, not an oversight. `eval/sweep_hnsw.py` swept HNSW
+build and search parameters against exact search over 20 queries spanning filter
+selectivity from 129,971 eligible wines down to 46:
+
+| Search-only, identical filtered subsets | Latency | Recall |
+|---|---|---|
+| **Exact numpy scan** | **0.41 ms** | **1.000** |
+| HNSW, best config (M=96, efC=400, efSearch=1024) | 2.82 ms | 0.876 |
+| HNSW, as originally built (M=32, efC=40, efSearch=16) | 0.12 ms | 0.357 |
+
+Exact is faster on 20/20 queries, and its worst case — all 129,971 vectors on an
+unfiltered query — is 2.40 ms. HNSW is strictly dominated: slower *and* lossier.
+
+The mechanism: a filter reduces exact's work proportionally, because it scans
+only eligible rows. It makes HNSW *less* efficient, because the graph spans the
+whole corpus and the traversal wastes its budget on ineligible neighbours. This
+is why production filtered-vector systems estimate filter cardinality and fall
+back to brute force when the filter is selective.
+
+Two things the sweep corrected about earlier claims in this repo:
+
+- **`efSearch` dominates, not graph connectivity.** Raising `efSearch` 16 → 1024
+  gained +0.50 recall; rebuilding with M 32 → 96 and efConstruction 40 → 400
+  gained +0.016 on top. The intuition that more edges per node rescues filtered
+  traversal is real but marginal here.
+- **An earlier "recall@10 = 0.932" figure was unrepresentative.** It measured raw
+  HNSW vs exact neighbours using *corpus vectors* as queries with *no filters*.
+  Under real queries with filters, the same index scores 0.357.
+
+So HNSW exists here as the measurement instrument that justifies not using it,
+and as the scale-up lever: exact costs ~16 ns/vector, so ~10M vectors would put
+a full scan around 160 ms, which is where ANN starts earning its keep.
+
+Full pipeline effect: `eval/compare_ann_exact.py` shows BM25 fusion and
+cross-encoder reranking absorb most of the retrieval loss — 0.357 vector recall
+becomes 0.825 final recall@10, with top-1 unchanged on 18/20 queries.
+
 ## Tracing
 
 Set `WINE_TRACE=1` to log every pipeline stage — inputs on entry, return value and duration on exit, all correlated by a per-request trace id:
