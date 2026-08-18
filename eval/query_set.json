@@ -1,0 +1,282 @@
+[
+  {
+    "query": "earthy notes of leather and dried cherry",
+    "filters": {
+      "country": null,
+      "variety": null,
+      "color": null,
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "earthy notes of leather and dried cherry"
+    },
+    "eligible_count": 129971
+  },
+  {
+    "query": "something crisp and refreshing for a hot afternoon",
+    "filters": {
+      "country": null,
+      "variety": null,
+      "color": "white",
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "crisp and refreshing for a hot afternoon"
+    },
+    "eligible_count": 41237
+  },
+  {
+    "query": "big tannic wine to pair with steak",
+    "filters": {
+      "country": null,
+      "variety": null,
+      "color": "red",
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "big tannic wine to pair with steak"
+    },
+    "eligible_count": 78663
+  },
+  {
+    "query": "elegant and mineral driven with high acidity",
+    "filters": {
+      "country": null,
+      "variety": null,
+      "color": null,
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "elegant and mineral driven with high acidity"
+    },
+    "eligible_count": 129971
+  },
+  {
+    "query": "French red wine",
+    "filters": {
+      "country": "France",
+      "variety": null,
+      "color": "red",
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "French red wine"
+    },
+    "eligible_count": 10231
+  },
+  {
+    "query": "Italian white",
+    "filters": {
+      "country": "Italy",
+      "variety": null,
+      "color": "white",
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "Italian white"
+    },
+    "eligible_count": 4630
+  },
+  {
+    "query": "a bottle from Argentina",
+    "filters": {
+      "country": "Argentina",
+      "variety": null,
+      "color": null,
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "a bottle from Argentina"
+    },
+    "eligible_count": 3800
+  },
+  {
+    "query": "sparkling wine",
+    "filters": {
+      "country": null,
+      "variety": null,
+      "color": "sparkling",
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "sparkling wine"
+    },
+    "eligible_count": 4715
+  },
+  {
+    "query": "California Chardonnay with oak and butter",
+    "filters": {
+      "country": "US",
+      "variety": "Chardonnay",
+      "color": "white",
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "oaked buttery"
+    },
+    "eligible_count": 6801
+  },
+  {
+    "query": "Spanish red under $30",
+    "filters": {
+      "country": "Spain",
+      "variety": null,
+      "color": "red",
+      "price_min": null,
+      "price_max": 30,
+      "points_min": null,
+      "points_max": null,
+      "query": "Spanish red wine"
+    },
+    "eligible_count": 2939
+  },
+  {
+    "query": "German Riesling with racy acidity",
+    "filters": {
+      "country": "Germany",
+      "variety": "Riesling",
+      "color": "white",
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "racy acidity"
+    },
+    "eligible_count": 1790
+  },
+  {
+    "query": "Oregon Pinot Noir, 90 points or better",
+    "filters": {
+      "country": "US",
+      "variety": "Pinot Noir",
+      "color": "red",
+      "price_min": null,
+      "price_max": null,
+      "points_min": 90,
+      "points_max": null,
+      "query": "Oregon"
+    },
+    "eligible_count": 5451
+  },
+  {
+    "query": "cheap Italian red under $20, 90+ points",
+    "filters": {
+      "country": "Italy",
+      "variety": null,
+      "color": "red",
+      "price_min": null,
+      "price_max": 20,
+      "points_min": 90,
+      "points_max": null,
+      "query": "cheap Italian red"
+    },
+    "eligible_count": 163
+  },
+  {
+    "query": "Bordeaux-style red blend under $25 rated at least 92",
+    "filters": {
+      "country": null,
+      "variety": "Bordeaux-style Red Blend",
+      "color": "red",
+      "price_min": null,
+      "price_max": 25,
+      "points_min": 92,
+      "points_max": null,
+      "query": "Bordeaux-style red blend under $25 rated at least 92"
+    },
+    "eligible_count": 46
+  },
+  {
+    "query": "outstanding Napa Cabernet Sauvignon over 95 points",
+    "filters": {
+      "country": "US",
+      "variety": "Cabernet Sauvignon",
+      "color": "red",
+      "price_min": null,
+      "price_max": null,
+      "points_min": 95,
+      "points_max": null,
+      "query": "outstanding Napa"
+    },
+    "eligible_count": 270
+  },
+  {
+    "query": "bargain Portuguese red under $15 with 90+ points",
+    "filters": {
+      "country": "Portugal",
+      "variety": "Portuguese Red",
+      "color": "red",
+      "price_min": null,
+      "price_max": 15,
+      "points_min": 90,
+      "points_max": null,
+      "query": "bargain Portuguese red under $15 with 90+ points"
+    },
+    "eligible_count": 111
+  },
+  {
+    "query": "gooseberry and passionfruit Sauvignon Blanc",
+    "filters": {
+      "country": null,
+      "variety": "Sauvignon Blanc",
+      "color": "white",
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "gooseberry and passionfruit"
+    },
+    "eligible_count": 4967
+  },
+  {
+    "query": "brett and barnyard funk",
+    "filters": {
+      "country": null,
+      "variety": null,
+      "color": null,
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "brett and barnyard funk"
+    },
+    "eligible_count": 129971
+  },
+  {
+    "query": "petrol note aged Riesling",
+    "filters": {
+      "country": null,
+      "variety": "Riesling",
+      "color": "white",
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "petrol note aged"
+    },
+    "eligible_count": 5189
+  },
+  {
+    "query": "chocolate espresso Malbec",
+    "filters": {
+      "country": null,
+      "variety": "Malbec",
+      "color": "red",
+      "price_min": null,
+      "price_max": null,
+      "points_min": null,
+      "points_max": null,
+      "query": "chocolate espresso"
+    },
+    "eligible_count": 2652
+  }
+]

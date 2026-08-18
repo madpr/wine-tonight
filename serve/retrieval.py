@@ -35,6 +35,7 @@ from tracing import traced
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "index" / "wine.duckdb"
 EMBEDDINGS_PATH = ROOT / "index" / "embeddings.npy"
+FAISS_INDEX_PATH = ROOT / "index" / "faiss.index"
 
 MODEL_NAME = "BAAI/bge-small-en-v1.5"
 QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
@@ -120,6 +121,60 @@ def vector_candidates(filters: dict, query_text: str, top_n: int = 100) -> list[
     top_positions = top_positions[np.argsort(-similarities[top_positions])]
 
     return eligible_ids[top_positions].tolist()
+
+
+_faiss_index = None
+
+
+def _get_faiss_index():
+    """Load the HNSW index lazily.
+
+    Kept out of module scope so the default (exact) serving path never pays for
+    importing faiss or reading a 224MB index it doesn't use -- the deployed
+    Space omits both the package and the file.
+    """
+    global _faiss_index
+    if _faiss_index is None:
+        import faiss  # noqa: PLC0415 -- deliberately lazy, see docstring
+
+        _faiss_index = faiss.read_index(str(FAISS_INDEX_PATH))
+    return _faiss_index
+
+
+@traced
+def vector_candidates_ann(filters: dict, query_text: str, top_n: int = 100) -> list[int]:
+    """Approximate counterpart to vector_candidates, for comparison.
+
+    Uses HNSW with an IDSelector so the graph traversal is restricted to rows
+    passing the filters. This matters: searching unfiltered and post-filtering
+    returns nothing when filters are selective (the failure that moved serving
+    to exact search), and rebuilding an index per filter combination is absurd.
+    Filtered ANN is what production vector stores (pgvector, Pinecone) do, so
+    it's the only honest approximate baseline to measure exact search against.
+    """
+    import faiss  # noqa: PLC0415
+
+    where, params = _build_where_clause(filters)
+    con = duckdb.connect(str(DB_PATH), read_only=True)
+    eligible_ids = np.array(
+        [r[0] for r in con.execute(f"SELECT id FROM wines WHERE {where}", params).fetchall()],
+        dtype=np.int64,
+    )
+    con.close()
+    if len(eligible_ids) == 0:
+        return []
+
+    query_emb = _model.encode(
+        [QUERY_PREFIX + query_text], normalize_embeddings=True, convert_to_numpy=True
+    ).astype(np.float32)
+
+    # eligible_ids and selector must stay referenced for the duration of the
+    # search -- the selector holds a raw pointer into the numpy buffer.
+    selector = faiss.IDSelectorBatch(eligible_ids.size, faiss.swig_ptr(eligible_ids))
+    search_params = faiss.SearchParametersHNSW(sel=selector)
+    _, neighbor_ids = _get_faiss_index().search(query_emb, top_n, params=search_params)
+
+    return [int(i) for i in neighbor_ids[0] if i != -1]
 
 
 @traced
