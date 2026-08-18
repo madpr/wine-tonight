@@ -30,8 +30,10 @@ command -v hf >/dev/null 2>&1 || {
   exit 1
 }
 
-HF_USER="$(hf auth whoami 2>/dev/null | head -1 | tr -d '[:space:]')" || true
-if [[ -z "${HF_USER}" || "${HF_USER}" == "Notloggedin" ]]; then
+# Read the username from the API rather than parsing `hf auth whoami`, whose
+# output is "user=<name>" and easy to mis-slice into an invalid repo id.
+HF_USER="$(python3 -c 'from huggingface_hub import HfApi; print(HfApi().whoami()["name"])' 2>/dev/null)" || true
+if [[ -z "${HF_USER}" ]]; then
   echo "ERROR: not logged in to Hugging Face. Run: hf auth login" >&2
   exit 1
 fi
