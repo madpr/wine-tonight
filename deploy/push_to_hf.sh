@@ -84,10 +84,10 @@ cat <<EOF
 
 Pushed to https://huggingface.co/spaces/${SPACE_ID}
 
-NEXT STEP -- the app will fail on every query until you do this.
-Omitting the value makes the CLI prompt for it, keeping the key out of
-your shell history:
-  hf spaces secrets add ${SPACE_ID} -s ANTHROPIC_API_KEY
+NEXT STEP -- every query fails with an auth TypeError until you do this.
+Reading from the file keeps the key out of your shell history; the bare
+'-s NAME' form does NOT prompt (that only works for HF_TOKEN):
+  hf spaces secrets add ${SPACE_ID} --secrets-file .env
 
 Then watch it come up:
   hf spaces logs ${SPACE_ID} --build --follow    # build errors
