@@ -15,6 +15,8 @@ import duckdb
 import torch
 from sentence_transformers import CrossEncoder
 
+from tracing import traced
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "index" / "wine.duckdb"
 
@@ -24,6 +26,7 @@ _device = "mps" if torch.backends.mps.is_available() else "cpu"
 _cross_encoder = CrossEncoder(MODEL_NAME, device=_device)
 
 
+@traced
 def rerank(query_text: str, candidate_ids: list[int], top_n: int = 50) -> list[tuple[int, float]]:
     """Re-score the top `top_n` candidate_ids (already ordered by RRF) with
     the cross-encoder, and return them re-sorted by that score."""

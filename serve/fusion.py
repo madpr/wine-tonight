@@ -5,7 +5,10 @@ uses rank position instead of raw score -- the standard, simplest correct
 answer for combining independently-ranked candidate lists.
 """
 
+from tracing import traced
 
+
+@traced
 def reciprocal_rank_fusion(*ranked_lists: list[int], k: int = 60) -> list[tuple[int, float]]:
     scores: dict[int, float] = {}
     for ranked in ranked_lists:

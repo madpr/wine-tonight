@@ -30,6 +30,8 @@ import numpy as np
 import torch
 from sentence_transformers import SentenceTransformer
 
+from tracing import traced
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "index" / "wine.duckdb"
 EMBEDDINGS_PATH = ROOT / "index" / "embeddings.npy"
@@ -70,6 +72,7 @@ def _build_where_clause(filters: dict) -> tuple[str, list]:
     return where, params
 
 
+@traced
 def keyword_candidates(filters: dict, query_text: str, top_n: int = 100) -> list[int]:
     where, params = _build_where_clause(filters)
     con = duckdb.connect(str(DB_PATH), read_only=True)
@@ -96,6 +99,7 @@ def keyword_candidates(filters: dict, query_text: str, top_n: int = 100) -> list
     return [r[0] for r in rows]
 
 
+@traced
 def vector_candidates(filters: dict, query_text: str, top_n: int = 100) -> list[int]:
     where, params = _build_where_clause(filters)
     con = duckdb.connect(str(DB_PATH), read_only=True)
@@ -118,5 +122,6 @@ def vector_candidates(filters: dict, query_text: str, top_n: int = 100) -> list[
     return eligible_ids[top_positions].tolist()
 
 
+@traced
 def hybrid_candidates(filters: dict, query_text: str, top_n: int = 100) -> tuple[list[int], list[int]]:
     return keyword_candidates(filters, query_text, top_n), vector_candidates(filters, query_text, top_n)

@@ -21,6 +21,7 @@ from fusion import reciprocal_rank_fusion
 from query_understanding import understand_query
 from rerank import rerank
 from retrieval import hybrid_candidates
+from tracing import traced
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "index" / "wine.duckdb"
@@ -64,6 +65,7 @@ def index() -> FileResponse:
 
 
 @app.post("/search", response_model=SearchResponse)
+@traced(root=True)
 def search(request: SearchRequest) -> SearchResponse:
     filters = understand_query(request.query)
 

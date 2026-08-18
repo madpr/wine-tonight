@@ -17,6 +17,8 @@ import anthropic
 import duckdb
 from dotenv import load_dotenv
 
+from tracing import traced
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "index" / "wine.duckdb"
 
@@ -110,6 +112,7 @@ _COUNTRIES, _VARIETIES = _load_known_values()
 _client = anthropic.Anthropic()
 
 
+@traced
 def understand_query(raw_query: str) -> dict:
     system = (
         "You translate natural-language wine search requests into structured filters. "

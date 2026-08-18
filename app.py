@@ -26,6 +26,7 @@ from fusion import reciprocal_rank_fusion
 from query_understanding import understand_query
 from rerank import rerank
 from retrieval import hybrid_candidates
+from tracing import traced
 
 ROOT = pathlib.Path(__file__).resolve().parent
 DB_PATH = ROOT / "index" / "wine.duckdb"
@@ -114,6 +115,7 @@ def _format_results(rows: list[tuple]) -> str:
     return "\n".join(lines)
 
 
+@traced(root=True)
 def search_wines(query: str) -> tuple[str, str]:
     """Search 129,971 wine reviews and return the best matches.
 

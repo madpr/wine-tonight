@@ -46,6 +46,30 @@ python3 serve/hand_trace.py "cheap Italian red under \$20, 90+ points"
 
 This prints the extracted filters, both candidate counts, and the RRF-only top 10 next to the reranked top 10 — useful for seeing what reranking actually changes.
 
+## Tracing
+
+Set `WINE_TRACE=1` to log every pipeline stage — inputs on entry, return value and duration on exit, all correlated by a per-request trace id:
+
+```
+WINE_TRACE=1 python3 serve/hand_trace.py "cheap Italian red under \$20, 90+ points"
+WINE_TRACE=1 uvicorn api:app --app-dir serve --port 8000
+```
+
+```
+[83e45354] → search('cheap Italian red under $20, 90+ points')
+[83e45354]   → understand_query('cheap Italian red under $20, 90+ points')
+[83e45354]   ← understand_query = {country='Italy', color='red', price_max=20, points_min=90, ...} [1920ms]
+[83e45354]     → keyword_candidates({...}, 'cheap Italian red', 100)
+[83e45354]     ← keyword_candidates = list[78403, 60268, ..., +54 more] (n=60) [43ms]
+[83e45354]     ← vector_candidates = list[120895, 22797, ..., +94 more] (n=100) [319ms]
+[83e45354]   ← rerank = list[tuple[60268, -5.84], ..., +44 more] (n=50) [112ms]
+[83e45354] ← search = list[...] (n=3) [2395ms]
+```
+
+Values are summarized rather than dumped — a `(129971, 384)` embeddings matrix logs as its shape, and long lists as a head plus a count — so the output stays readable. Tracing is off unless `WINE_TRACE` is set, and the decorator short-circuits when disabled.
+
+Useful immediately: the timings show the LLM query-understanding call is ~80% of total latency, while all the retrieval, fusion, and reranking together run in under 500ms.
+
 ## Project structure
 
 - `data/` — raw input (gitignored)
