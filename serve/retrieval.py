@@ -73,6 +73,13 @@ def _build_where_clause(filters: dict) -> tuple[str, list]:
 def keyword_candidates(filters: dict, query_text: str, top_n: int = 100) -> list[int]:
     where, params = _build_where_clause(filters)
     con = duckdb.connect(str(DB_PATH), read_only=True)
+    # INSTALL as well as LOAD: the FTS *index data* travels inside the .duckdb
+    # file, but the extension *binary* does not -- it's a platform-specific
+    # shared library DuckDB fetches into ~/.duckdb/extensions/. A machine that
+    # only ever reads the prebuilt database (e.g. a fresh deploy container,
+    # different OS/arch than where the index was built) has never installed it,
+    # so LOAD alone fails. INSTALL is a cheap no-op once cached.
+    con.execute("INSTALL fts")
     con.execute("LOAD fts")
     sql = f"""
         SELECT w.id
