@@ -54,9 +54,42 @@ echo "Staging Space contents in $STAGING"
 
 mkdir -p "$STAGING/serve" "$STAGING/index"
 
-# Gradio entry point + the unchanged pipeline modules it imports.
+# Gradio entry point + the pipeline modules it imports.
+#
+# Copy serve/*.py wholesale rather than naming files. An explicit list went
+# stale the moment serve/tracing.py was added -- every module imported it, it
+# wasn't in the list, and the Space died on ModuleNotFoundError after a
+# five-minute build. api.py is the one exclusion: it needs fastapi/uvicorn,
+# which the Space doesn't install because Gradio replaces that serving layer.
 cp app.py "$STAGING/"
-cp serve/fusion.py serve/query_understanding.py serve/rerank.py serve/retrieval.py "$STAGING/serve/"
+for module in serve/*.py; do
+  [ "$(basename "$module")" = "api.py" ] && continue
+  cp "$module" "$STAGING/serve/"
+done
+
+# Static check that every local import resolves inside the staging tree. Cheap,
+# and it catches the missing-module class of failure before a slow remote build.
+python3 - "$STAGING" <<'PY'
+import pathlib, re, sys
+staging = pathlib.Path(sys.argv[1])
+available = {p.stem for p in staging.rglob("*.py")}
+missing = []
+for path in sorted(staging.rglob("*.py")):
+    for line in path.read_text().splitlines():
+        m = re.match(r"\s*from (\w+) import |^\s*import (\w+)\s*$", line)
+        if not m:
+            continue
+        name = m.group(1) or m.group(2)
+        # A bare name that exists in serve/ locally but not in staging is the bug.
+        if (pathlib.Path("serve") / f"{name}.py").exists() and name not in available:
+            missing.append(f"{path.relative_to(staging)} imports '{name}' (not staged)")
+if missing:
+    print("ERROR: staged tree has unresolved local imports:", file=sys.stderr)
+    for item in missing:
+        print(f"  {item}", file=sys.stderr)
+    sys.exit(1)
+print(f"import check: {len(available)} modules staged, all local imports resolve")
+PY
 
 # Space-specific variants (see the header comment for why these differ).
 cp deploy/requirements_hf.txt "$STAGING/requirements.txt"
