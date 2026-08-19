@@ -14,12 +14,12 @@ Each tier returns the same shape, plus a `_source` field so the UI can say when 
 
 | Tier | Latency | Cost | When |
 |---|---|---|---|
-| cache | **0.006 ms** | $0 | repeat query (case/whitespace-normalised) |
+| cache | **0.006 ms** | $0 | repeat query (case/whitespace-normalized) |
 | Haiku | ~1900 ms | ~$0.003 | default |
 | rules | ~0 ms | $0 | LLM slow, erroring, or unconfigured |
 | raw query | 0 ms | $0 | genuine bug in the above |
 
-**A search must never return zero wines because query understanding failed** — BM25 and vector retrieval work fine on the raw string. This generalises what the design already did for long-tail varieties: whatever can't become a hard filter falls through to free-text search.
+**A search must never return zero wines because query understanding failed** — BM25 and vector retrieval work fine on the raw string. This generalizes what the design already did for long-tail varieties: whatever can't become a hard filter falls through to free-text search.
 
 ### What was wrong before
 
@@ -30,7 +30,7 @@ Each tier returns the same shape, plus a `_source` field so the UI can say when 
 
 ## The rule-based tier
 
-Regex for price and points; matching against the real column values for country, variety and colour, including adjectival and US place-name forms (`"Italian"` → `Italy`, `"Napa"` → `US`). Colour is inferred from a matched variety when not stated.
+Regex for price and points; matching against the real column values for country, variety and color, including adjectival and US place-name forms (`"Italian"` → `Italy`, `"Napa"` → `US`). Color is inferred from a matched variety when not stated.
 
 Measured against Haiku on the frozen query set (`eval/compare_query_understanding.py`):
 
@@ -77,4 +77,4 @@ The first run scored much worse (24 spurious, 3 wrong) because the schema declar
 
 ~2,340 input + ~100 output tokens per Haiku call ≈ **$0.003/query**; repeats are **$0** from cache.
 
-An unexplored optimisation: the system prompt (country list, top-200 varieties, tool schema) is stable across queries and is most of those 2,340 tokens, making it a prompt-caching candidate. That would cut both the dominant latency component and the per-query cost.
+An unexplored optimization: the system prompt (country list, top-200 varieties, tool schema) is stable across queries and is most of those 2,340 tokens, making it a prompt-caching candidate. That would cut both the dominant latency component and the per-query cost.

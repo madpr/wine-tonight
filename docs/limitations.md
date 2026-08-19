@@ -1,4 +1,4 @@
-# Known limitations and scale behaviour
+# Known limitations and scale behavior
 
 What this system doesn't do, where it breaks, and what it would take to fix — stated up front rather than discovered later. Every number here is measured; where something is unmeasured, that's said explicitly.
 
@@ -22,7 +22,7 @@ Every one of those numbers would be unchanged if the ranking were uniformly bad 
 **NDCG@k** is the right primary metric, for two reasons specific to this domain:
 
 - **Relevance is graded, not binary.** For "cheap Italian red, 90+": an Italian red at $18/91pts is perfect, an Italian *white* is wrong-but-related, a French white is simply wrong.
-- **Position matters.** DCG divides each grade by `log₂(rank+1)`, so a result at rank 1 counts ~3.5× the same result at rank 10. Normalising by the ideal ordering keeps queries comparable.
+- **Position matters.** DCG divides each grade by `log₂(rank+1)`, so a result at rank 1 counts ~3.5× the same result at rank 10. Normalizing by the ideal ordering keeps queries comparable.
 
 **Precision@k structurally cannot evaluate a reranker.** A reranker doesn't change *which* wines return from the top-50, only their order — and precision is order-blind. Same five wines, different order:
 
@@ -120,7 +120,7 @@ Measured: **112 ms for 50 candidates**, ~2.2 ms/pair, linear.
 
 **K is a hard recall ceiling** — a wine at fused rank 60 is unreachable at K=50 however relevant it is.
 
-The latency budget is *not* the binding constraint: 200 would cost ~450 ms against a 1920 ms LLM call. **The reason not to raise K is that there's no evidence it would help.** Setting it properly means measuring recall@K of the fused list against labelled relevance and picking where the curve plateaus — which needs §1.
+The latency budget is *not* the binding constraint: 200 would cost ~450 ms against a 1920 ms LLM call. **The reason not to raise K is that there's no evidence it would help.** Setting it properly means measuring recall@K of the fused list against labeled relevance and picking where the curve plateaus — which needs §1.
 
 ---
 
@@ -142,14 +142,14 @@ The original architecture sketch called out freshness (reindex lag vs cost); `PL
 
 - `load_to_duckdb.py` **drops and recreates** the table — no append path
 - Embeddings are one batch; adding a wine means re-embedding everything, or appending and breaking the `id == row index` invariant
-- The FTS index and colour classification are both wholesale rebuilds
+- The FTS index and color classification are both wholesale rebuilds
 
 Making it incremental requires decoupling id from row position (a mapping file), append-only ingestion with hash dedup, and choosing a reindex cadence — the lag-vs-cost tradeoff the sketch named.
 
 ### Cold-start splits in two
 
 - **System cold-start is real and measured.** The Space loads a 200 MB matrix and two models at boot; the first query measured 357 ms against 13–20 ms steady-state for vector search, on top of seconds of model loading.
-- **Item cold-start doesn't apply.** Ranking is purely content-based, so a brand-new wine is instantly as rankable as any other. The flip side is the real limitation: **there is no popularity, rating-volume, or behavioural signal in the ranking at all**, because no interaction data exists to build one from.
+- **Item cold-start doesn't apply.** Ranking is purely content-based, so a brand-new wine is instantly as rankable as any other. The flip side is the real limitation: **there is no popularity, rating-volume, or behavioral signal in the ranking at all**, because no interaction data exists to build one from.
 
 ---
 

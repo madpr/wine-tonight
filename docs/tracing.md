@@ -67,4 +67,4 @@ Failures log at each level with `✗`, including duration, then propagate unchan
 
 ## What it revealed immediately
 
-The LLM query-understanding call is **~80% of request latency** (1920ms of 2395ms). Everything one might assume is expensive — vector search, BM25, cross-encoder reranking — totals under 500ms. That reframes where optimisation effort belongs; see the prompt-caching note in [architecture.md](architecture.md).
+The LLM query-understanding call is **~80% of request latency** (1920ms of 2395ms). Everything one might assume is expensive — vector search, BM25, cross-encoder reranking — totals under 500ms. That reframes where optimization effort belongs; see the prompt-caching note in [architecture.md](architecture.md).

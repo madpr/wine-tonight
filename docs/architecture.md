@@ -30,7 +30,7 @@ Also builds a FAISS HNSW index. **This is not used at query time** — see [retr
 
 **`build_fts_index.py`** — DuckDB's FTS extension over `description`, giving real BM25 scoring. Note that `INSTALL fts` is needed at query time too, not just `LOAD`: the index *data* lives inside the `.duckdb` file, but the extension *binary* is a platform-specific shared library that a fresh host has never fetched.
 
-**`classify_wine_color.py`** — the dataset has no colour column, so `claude-haiku-4-5` classifies each of the 707 distinct varieties once into `red`/`white`/`rose`/`sparkling`/`dessert`/`fortified`/`orange`/`other`, joined onto every wine as `wines.color`.
+**`classify_wine_color.py`** — the dataset has no color column, so `claude-haiku-4-5` classifies each of the 707 distinct varieties once into `red`/`white`/`rose`/`sparkling`/`dessert`/`fortified`/`orange`/`other`, joined onto every wine as `wines.color`.
 
 This exists because "red wine" had no hard filter to enforce it — "red" reached only BM25/vector scoring as free text, so white and rosé wines ranked into results for red-wine queries. Classifying 707 variety *names* once is cheap; classifying 130k rows would not be.
 
@@ -48,7 +48,7 @@ Haiku rather than a frontier model because this is narrow extraction against a f
 
 **Keyword path:** filters as a SQL `WHERE` clause, then BM25 scored only within that filtered set — so scores are meaningful relative to the universe actually being searched.
 
-**Vector path:** filters via DuckDB to get eligible ids, then exact cosine similarity (embeddings are pre-normalised, so it's a dot product) over just those rows.
+**Vector path:** filters via DuckDB to get eligible ids, then exact cosine similarity (embeddings are pre-normalized, so it's a dot product) over just those rows.
 
 The vector path originally did the opposite — searched the full corpus with ANN, then dropped violators. That returns **zero results** whenever filters are selective and uncorrelated with the query's semantic direction: `country='Italy' AND price≤20 AND points≥90` matches 163 of 129,971 wines, and none appeared in the top-100 unfiltered neighbours for "tannic cherry". Filtering first is structurally immune to that.
 
@@ -56,7 +56,7 @@ The vector path originally did the opposite — searched the full corpus with AN
 
 `score(doc) = Σ 1/(k + rank_in_list)`, k=60.
 
-BM25 scores (unbounded, corpus-statistics-dependent) and cosine similarities (−1 to 1) aren't comparable, so averaging them would let whichever has larger magnitude dominate arbitrarily. RRF uses rank *position* instead, sidestepping normalisation entirely. Documents both paths rank highly rise to the top — the actual point of hybrid search.
+BM25 scores (unbounded, corpus-statistics-dependent) and cosine similarities (−1 to 1) aren't comparable, so averaging them would let whichever has larger magnitude dominate arbitrarily. RRF uses rank *position* instead, sidestepping normalization entirely. Documents both paths rank highly rise to the top — the actual point of hybrid search.
 
 ### 4. Reranking — cross-encoder
 
@@ -80,4 +80,4 @@ From `WINE_TRACE=1` (see [tracing.md](tracing.md)):
 
 The only per-query monetary cost is the LLM call (~2,340 input + ~100 output tokens on Haiku ≈ $0.003/query). Embedding, retrieval, fusion and reranking all run locally and cost nothing.
 
-An unexplored optimisation: the system prompt (country + variety lists + tool schema) is stable across queries and is most of those 2,340 tokens, making it a prompt-caching candidate — which would cut both the dominant latency component and the per-query cost.
+An unexplored optimization: the system prompt (country + variety lists + tool schema) is stable across queries and is most of those 2,340 tokens, making it a prompt-caching candidate — which would cut both the dominant latency component and the per-query cost.

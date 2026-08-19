@@ -51,7 +51,7 @@ Deliberately excluded: `region_2` (61% null — filtering would silently drop mo
 
 ## Derived `color`
 
-The dataset has no colour column, so `ingest/classify_wine_color.py` has `claude-haiku-4-5` classify all 707 distinct varieties once:
+The dataset has no color column, so `ingest/classify_wine_color.py` has `claude-haiku-4-5` classify all 707 distinct varieties once:
 
 | color | wines |
 |---|---|
@@ -74,6 +74,6 @@ The 6 `other` rows are legitimate: `variety` values of `'Other'`, `'Apple'` (fru
 
 **Long-tail varieties aren't filterable.** Only the top 200 by frequency are injected into the query-understanding prompt (to keep it small), so the remaining 507 fall through to free-text search rather than becoming hard filters.
 
-**Whitespace in source data.** Four rows had trailing spaces in `variety` (`'Tintilia '`), which silently breaks exact-match filters. Now trimmed at load time — but a reminder that exact-match filters are only as good as the normalisation upstream of them.
+**Whitespace in source data.** Four rows had trailing spaces in `variety` (`'Tintilia '`), which silently breaks exact-match filters. Now trimmed at load time — but a reminder that exact-match filters are only as good as the normalization upstream of them.
 
-**No relevance judgements.** There are no human labels for "is this a good result for this query", so ranking quality is unmeasured. Everything in [retrieval-evaluation.md](retrieval-evaluation.md) measures *agreement between methods*, not correctness.
+**No relevance judgments.** There are no human labels for "is this a good result for this query", so ranking quality is unmeasured. Everything in [retrieval-evaluation.md](retrieval-evaluation.md) measures *agreement between methods*, not correctness.

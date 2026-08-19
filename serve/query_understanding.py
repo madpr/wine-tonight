@@ -226,7 +226,7 @@ def extract_filters_rules(raw_query: str) -> dict:
 
 
 def _variety_color(variety: str) -> str | None:
-    """Look up the derived colour for a variety (see ingest/classify_wine_color.py)."""
+    """Look up the derived color for a variety (see ingest/classify_wine_color.py)."""
     con = duckdb.connect(str(DB_PATH), read_only=True)
     row = con.execute("SELECT color FROM variety_color WHERE variety = ?", [variety]).fetchone()
     con.close()
@@ -242,7 +242,7 @@ def understand_query(raw_query: str, allow_llm: bool = True) -> dict:
     return wines when it is slow, erroring, or unconfigured, because BM25 and
     vector retrieval work perfectly well on the raw string.
 
-    Generalises what the design already did for long-tail varieties -- anything
+    Generalizes what the design already did for long-tail varieties -- anything
     that can't become a hard filter falls through to free-text search.
     """
     normalized = " ".join(raw_query.lower().split())

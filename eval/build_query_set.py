@@ -3,7 +3,7 @@
 Why this exists as a separate step: understand_query is non-deterministic --
 the same input has produced "cheap Italian red", "red wine", and the full
 original string as the residual query on different calls. Calling it inside the
-comparison would measure LLM variance rather than retrieval behaviour, so
+comparison would measure LLM variance rather than retrieval behavior, so
 filters are extracted once here and reused for every path under test.
 
 Queries deliberately span filter selectivity, which is the variable expected to
@@ -32,7 +32,7 @@ QUERIES = [
     "something crisp and refreshing for a hot afternoon",
     "big tannic wine to pair with steak",
     "elegant and mineral driven with high acidity",
-    # --- broad filters (country or colour only) ---
+    # --- broad filters (country or color only) ---
     "French red wine",
     "Italian white",
     "a bottle from Argentina",

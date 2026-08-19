@@ -93,10 +93,10 @@ python3 eval/compare_ann_exact.py    # stage-by-stage divergence
 python3 eval/sweep_hnsw.py           # M / efConstruction / efSearch sweep
 ```
 
-`build_query_set.py` is a separate step on purpose: `understand_query` is non-deterministic (the same input has produced three different residual query strings), so filters are extracted once and frozen. Calling the LLM inside the comparison would measure model variance instead of retrieval behaviour.
+`build_query_set.py` is a separate step on purpose: `understand_query` is non-deterministic (the same input has produced three different residual query strings), so filters are extracted once and frozen. Calling the LLM inside the comparison would measure model variance instead of retrieval behavior.
 
 ## Caveats
 
 - 20 queries is a small set.
 - Exact is ground truth **by construction**, so this measures deviation, not relevance quality. It does not show exact search returns *better* wines — only that ANN returns different ones.
-- No human relevance judgements exist for this corpus, so "is the ranking actually good?" remains unmeasured.
+- No human relevance judgments exist for this corpus, so "is the ranking actually good?" remains unmeasured.
